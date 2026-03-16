@@ -12,6 +12,11 @@ app.get('/', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
+
+server.on('error', (error) => {
+  console.error('Error starting server:', error);
+  process.exit(1);
+});
   console.log(`Server is running at http://localhost:${PORT}`);
 });
