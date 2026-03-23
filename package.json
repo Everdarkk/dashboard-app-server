@@ -4,7 +4,7 @@
   "description": "Dashboard app",
   "main": "index.ts",
   "scripts": {
-    "dev": "tsx src/server.ts",
+    "dev": "tsx src/index.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "db:generate": "drizzle-kit generate",
