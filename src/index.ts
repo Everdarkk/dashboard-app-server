@@ -1,6 +1,8 @@
+import "dotenv/config";
 import express from 'express';
 import subjectsRouter from './routes/subjects'
 import cors from 'cors'
+import { applySecurity } from './middleware/security';
 
 const app = express();
 const PORT = 8000;
@@ -18,6 +20,9 @@ app.use(cors({
 
 // Middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+applySecurity(app);
 
 // ROUTER
 app.use('/api/subjects', subjectsRouter)
