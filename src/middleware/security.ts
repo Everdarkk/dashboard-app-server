@@ -1,5 +1,9 @@
 import type { Express, RequestHandler } from "express";
-import { botDetectionMiddleware, verifyTurnstileMiddleware } from "./botDetection";
+import {
+  honeypotMiddleware,
+  userAgentMiddleware,
+  verifyTurnstileMiddleware,
+} from "./botDetection";
 import { securityHeaders } from "./headers";
 import { ipFilterMiddleware } from "./ipFilter";
 import { authLimiter, defaultLimiter } from "./rateLimit";
@@ -15,6 +19,11 @@ const defaultOptions: Required<SecurityOptions> = {
 };
 
 export const applySecurity = (app: Express, options: SecurityOptions = {}): void => {
+  applySecurityPreBody(app, options);
+  applySecurityPostBody(app, options);
+};
+
+export const applySecurityPreBody = (app: Express, options: SecurityOptions = {}): void => {
   const resolvedOptions = { ...defaultOptions, ...options };
 
   if (resolvedOptions.enableSecurityHeaders) {
@@ -26,11 +35,15 @@ export const applySecurity = (app: Express, options: SecurityOptions = {}): void
   }
 
   if (resolvedOptions.enableBotDetection) {
-    app.use(botDetectionMiddleware);
+    app.use(userAgentMiddleware);
   }
+};
 
-  if (resolvedOptions.enableRateLimit) {
-    app.use(defaultLimiter);
+export const applySecurityPostBody = (app: Express, options: SecurityOptions = {}): void => {
+  const resolvedOptions = { ...defaultOptions, ...options };
+
+  if (resolvedOptions.enableBotDetection) {
+    app.use(honeypotMiddleware);
   }
 
   if (resolvedOptions.enableBodySanitization) {
@@ -40,4 +53,4 @@ export const applySecurity = (app: Express, options: SecurityOptions = {}): void
 
 export const authMiddleware: RequestHandler[] = [authLimiter, verifyTurnstileMiddleware];
 
-export { authLimiter };
+export { authLimiter, defaultLimiter };

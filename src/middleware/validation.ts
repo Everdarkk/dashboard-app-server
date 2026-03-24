@@ -12,6 +12,49 @@ type ValidationErrorBag = {
   params?: ZodFormattedError<unknown>;
 };
 
+export type ValidationSchemas = {
+  body?: ZodSchema<unknown>;
+  query?: ZodSchema<unknown>;
+  params?: ZodSchema<unknown>;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+};
+
+const replaceRecordContents = (target: unknown, source: unknown): void => {
+  if (!isRecord(target) || !isRecord(source)) {
+    return;
+  }
+
+  for (const key of Object.keys(target)) {
+    delete target[key];
+  }
+
+  Object.assign(target, source);
+};
+
+const applyParsedRequestPart = (
+  req: Request,
+  key: "query" | "params",
+  value: unknown,
+): void => {
+  try {
+    Object.defineProperty(req, key, {
+      value,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
+
+    return;
+  } catch {
+    // Fall back to in-place mutation when the request property cannot be redefined.
+  }
+
+  replaceRecordContents(req[key] as unknown, value);
+};
+
 const getMaxFieldLength = (): number => {
   const rawValue = process.env.MAX_FIELD_LENGTH;
   const parsedValue = rawValue ? Number.parseInt(rawValue, 10) : Number.NaN;
@@ -85,24 +128,23 @@ export const sanitizeBody: RequestHandler = (
   }
 };
 
-export const validate = (schema: ZodSchema<unknown>): RequestHandler => {
+export const validate = (schemas: ValidationSchemas): RequestHandler => {
   return (req: Request, res: Response, next: NextFunction): void => {
     try {
-      const bodyResult = schema.safeParse(req.body);
-      const queryResult = schema.safeParse(req.query);
-      const paramsResult = schema.safeParse(req.params);
-
       const errors: ValidationErrorBag = {};
+      const bodyResult = schemas.body?.safeParse(req.body);
+      const queryResult = schemas.query?.safeParse(req.query);
+      const paramsResult = schemas.params?.safeParse(req.params);
 
-      if (!bodyResult.success) {
+      if (bodyResult && !bodyResult.success) {
         errors.body = bodyResult.error.format();
       }
 
-      if (!queryResult.success) {
+      if (queryResult && !queryResult.success) {
         errors.query = queryResult.error.format();
       }
 
-      if (!paramsResult.success) {
+      if (paramsResult && !paramsResult.success) {
         errors.params = paramsResult.error.format();
       }
 
@@ -111,7 +153,17 @@ export const validate = (schema: ZodSchema<unknown>): RequestHandler => {
         return;
       }
 
-      req.body = bodyResult.data;
+      if (bodyResult?.success) {
+        req.body = bodyResult.data;
+      }
+
+      if (queryResult?.success) {
+        applyParsedRequestPart(req, "query", queryResult.data);
+      }
+
+      if (paramsResult?.success) {
+        applyParsedRequestPart(req, "params", paramsResult.data);
+      }
 
       next();
     } catch (error) {

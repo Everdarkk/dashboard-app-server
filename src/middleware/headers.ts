@@ -16,7 +16,7 @@ export const securityHeaders = helmet({
     includeSubDomains: true,
     preload: true,
   },
-  crossOriginEmbedderPolicy: true,
+  crossOriginEmbedderPolicy: false,
   crossOriginOpenerPolicy: true,
   crossOriginResourcePolicy: {
     policy: "same-origin",

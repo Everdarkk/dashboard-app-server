@@ -10,7 +10,10 @@ const geoCache = new TtlCache<string, string | null>(ONE_HOUR_MS);
 let hasWarnedMissingIpInfoToken = false;
 
 const getClientIp = (req: Request): string => {
-  const forwardedFor = req.headers["x-forwarded-for"];
+  const forwardedForHeader = req.headers["x-forwarded-for"];
+  const forwardedFor = Array.isArray(forwardedForHeader)
+    ? forwardedForHeader[0]
+    : forwardedForHeader;
 
   if (typeof forwardedFor === "string" && forwardedFor.length > 0) {
     return forwardedFor.split(",")[0]?.trim() ?? req.ip ?? "unknown";

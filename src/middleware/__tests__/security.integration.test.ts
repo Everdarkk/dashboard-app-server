@@ -1,16 +1,16 @@
 import express, { type Express } from "express";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { applySecurity, authMiddleware } from "../security";
+import { applySecurityPostBody, applySecurityPreBody, authMiddleware } from "../security";
 
 type EnvSnapshot = {
-  NODE_ENV?: string;
-  BLOCKED_IPS?: string;
-  BLOCKED_COUNTRIES?: string;
-  IPINFO_TOKEN?: string;
-  TURNSTILE_SECRET?: string;
-  HONEYPOT_FIELD?: string;
-  MAX_FIELD_LENGTH?: string;
+  NODE_ENV: string | undefined;
+  BLOCKED_IPS: string | undefined;
+  BLOCKED_COUNTRIES: string | undefined;
+  IPINFO_TOKEN: string | undefined;
+  TURNSTILE_SECRET: string | undefined;
+  HONEYPOT_FIELD: string | undefined;
+  MAX_FIELD_LENGTH: string | undefined;
 };
 
 const snapshotEnv = (): EnvSnapshot => ({
@@ -42,10 +42,15 @@ const createTestApp = (): Express => {
   const app = express();
 
   app.set("trust proxy", true);
+
+  applySecurityPreBody(app, {
+    enableRateLimit: false,
+  });
+
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  applySecurity(app, {
+  applySecurityPostBody(app, {
     enableRateLimit: false,
   });
 
@@ -150,5 +155,33 @@ describe("security middleware integration", () => {
       .expect(400);
 
     expect(response.body).toEqual({ error: "Turnstile token required" });
+  });
+
+  it("blocks requests when honeypot field is submitted in body", async () => {
+    process.env.HONEYPOT_FIELD = "_hp";
+
+    const app = createTestApp();
+
+    const response = await request(app)
+      .post("/echo")
+      .set("user-agent", "Mozilla/5.0")
+      .send({ safe: "ok", _hp: "bot-filled" })
+      .expect(403);
+
+    expect(response.body).toEqual({ error: "Access denied" });
+  });
+
+  it("does not block requests when honeypot query field is present but empty", async () => {
+    process.env.HONEYPOT_FIELD = "_hp";
+
+    const app = createTestApp();
+
+    const response = await request(app)
+      .post("/echo?_hp=")
+      .set("user-agent", "Mozilla/5.0")
+      .send({ safe: "ok" })
+      .expect(200);
+
+    expect(response.body).toEqual({ body: { safe: "ok" } });
   });
 });

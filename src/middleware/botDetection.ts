@@ -54,22 +54,23 @@ const rejectSuspiciousUserAgent = (req: Request, res: Response): boolean => {
 const hasTriggeredHoneypot = (req: Request): boolean => {
   const honeypotField = process.env.HONEYPOT_FIELD ?? "_hp";
 
-  const bodyValue = req.body?.[honeypotField];
-  const queryValue = req.query?.[honeypotField];
+  const isFilled = (value: unknown): boolean => {
+    if (value === undefined || value === null) {
+      return false;
+    }
 
-  if (bodyValue === undefined && queryValue === undefined) {
-    return false;
-  }
+    if (typeof value === "string") {
+      return value.trim().length > 0;
+    }
 
-  if (typeof bodyValue === "string") {
-    return bodyValue.trim().length > 0;
-  }
+    if (Array.isArray(value)) {
+      return value.length > 0;
+    }
 
-  if (Array.isArray(bodyValue)) {
-    return bodyValue.length > 0;
-  }
+    return true;
+  };
 
-  return bodyValue !== undefined || queryValue !== undefined;
+  return isFilled(req.body?.[honeypotField]) || isFilled(req.query?.[honeypotField]);
 };
 
 export const honeypotMiddleware: RequestHandler = (req, res, next): void => {
@@ -81,6 +82,18 @@ export const honeypotMiddleware: RequestHandler = (req, res, next): void => {
 
     warnSecurityEvent(req, "honeypot_triggered");
     res.status(403).json({ error: "Access denied" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const userAgentMiddleware: RequestHandler = (req, res, next): void => {
+  try {
+    if (rejectSuspiciousUserAgent(req, res)) {
+      return;
+    }
+
+    next();
   } catch (error) {
     next(error);
   }

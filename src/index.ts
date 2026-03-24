@@ -2,7 +2,7 @@ import "dotenv/config";
 import express from 'express';
 import subjectsRouter from './routes/subjects'
 import cors from 'cors'
-import { applySecurity } from './middleware/security';
+import { applySecurityPostBody, applySecurityPreBody, defaultLimiter } from './middleware/security';
 
 const app = express();
 const PORT = 8000;
@@ -19,10 +19,14 @@ app.use(cors({
 }))
 
 // Middleware
+applySecurityPreBody(app);
+
+app.use('/api/subjects', defaultLimiter);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-applySecurity(app);
+applySecurityPostBody(app);
 
 // ROUTER
 app.use('/api/subjects', subjectsRouter)
