@@ -20,8 +20,6 @@ app.use(cors({
   credentials: true
 }))
 
-// Better-auth
-app.all('/api/auth/*splat', toNodeHandler(auth))
 
 // Middleware
 applySecurityPreBody(app)
@@ -35,6 +33,9 @@ applySecurityPostBody(app)
 
 // ROUTER
 app.use('/api/subjects', subjectsRouter)
+
+// Better-auth
+app.all('/api/auth/*splat', toNodeHandler(auth))
 
 // Routes
 app.get('/', (req, res) => {
