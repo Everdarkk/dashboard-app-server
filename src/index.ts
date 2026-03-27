@@ -1,8 +1,10 @@
 import "dotenv/config";
 import express from 'express';
 import subjectsRouter from './routes/subjects'
+import usersRouter from './routes/users'
+import classesRouter from './routes/classes'
 import cors from 'cors'
-import { applySecurityPostBody, applySecurityPreBody, defaultLimiter } from './middleware/security'
+import { applySecurityPostBody, applySecurityPreBody, createRateLimiter } from './middleware/security'
 import {toNodeHandler} from 'better-auth/node'
 import { auth } from './lib/auth'
 
@@ -24,7 +26,10 @@ app.use(cors({
 // Middleware
 applySecurityPreBody(app)
 
-app.use('/api/subjects', defaultLimiter)
+app.use('/api/subjects', createRateLimiter({ keyPrefix: 'subjects' }))
+app.use('/api/users', createRateLimiter({ keyPrefix: 'users' }))
+app.use('/api/classes', createRateLimiter({ keyPrefix: 'classes' }))
+
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
@@ -33,6 +38,9 @@ applySecurityPostBody(app)
 
 // ROUTER
 app.use('/api/subjects', subjectsRouter)
+app.use('/api/users', usersRouter)
+app.use('/api/classes', classesRouter)
+
 
 // Better-auth
 app.all('/api/auth/*splat', toNodeHandler(auth))
