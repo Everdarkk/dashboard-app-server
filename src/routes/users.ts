@@ -1,10 +1,9 @@
 import { and, desc, eq, getTableColumns, ilike, or, sql } from "drizzle-orm"
 import express from "express"
-import { user } from "../db/schema"
+import { roleEnum, user } from "../db/schema"
 import { db } from "../db"
 
 const router = express.Router()
-const validRoles = ['student', 'teacher', 'admin'] as const
 
 // GET all users with opt search, filtering and pagination
 router.get('/', async (req, res) => {
@@ -32,8 +31,8 @@ router.get('/', async (req, res) => {
         if (role) {
             const roleValue = String(role)
 
-            if (validRoles.includes(roleValue as (typeof validRoles)[number])) {
-                filterConditions.push(eq(user.role, roleValue as (typeof validRoles)[number]))
+            if ((roleEnum.enumValues as readonly string[]).includes(roleValue)) {
+                filterConditions.push(eq(user.role, roleValue as (typeof roleEnum.enumValues)[number]))
             }
         }
 
