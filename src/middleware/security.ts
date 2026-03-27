@@ -6,7 +6,7 @@ import {
 } from "./botDetection";
 import { securityHeaders } from "./headers";
 import { ipFilterMiddleware } from "./ipFilter";
-import { authLimiter, defaultLimiter } from "./rateLimit";
+import { authLimiter, createRateLimiter, defaultLimiter } from "./rateLimit";
 import { sanitizeBody } from "./validation";
 import type { SecurityOptions } from "../types/security";
 
@@ -53,4 +53,4 @@ export const applySecurityPostBody = (app: Express, options: SecurityOptions = {
 
 export const authMiddleware: RequestHandler[] = [authLimiter, verifyTurnstileMiddleware];
 
-export { authLimiter, defaultLimiter };
+export { authLimiter, createRateLimiter, defaultLimiter };
