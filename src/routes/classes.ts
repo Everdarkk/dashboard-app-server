@@ -1,12 +1,92 @@
 import express from 'express'
 import { db } from '../db/index'
-import { classes } from '../db/schema/index'
+import { classes, classStatusEnum, subjects } from '../db/schema/index'
 import { auth } from '../lib/auth'
 import { fromNodeHeaders } from 'better-auth/node'
-import { eq } from 'drizzle-orm'
+import { and, desc, eq, getTableColumns, ilike, sql } from 'drizzle-orm'
 import { user } from '../db/schema/auth'
 
 const router = express.Router()
+
+// GET all classes with optional search, status filter, and pagination
+router.get('/', async (req, res) => {
+    try {
+        const { search, status, subject, page = 1, limit = 10 } = req.query
+
+        const currentPage = Math.max(1, parseInt(String(page), 10) || 1)
+        const limitPerPage = Math.min(Math.max(1, parseInt(String(limit), 10) || 10), 100)
+
+        const offset = (currentPage - 1) * limitPerPage
+
+        const filterConditions = []
+
+        // Filter by class name
+        if (search) {
+            filterConditions.push(ilike(classes.name, `%${search}%`))
+        }
+
+        // Filter by status — validate against known enum values to prevent injection
+        if (status) {
+            const statusValue = String(status)
+            if ((classStatusEnum.enumValues as readonly string[]).includes(statusValue)) {
+                filterConditions.push(
+                    eq(classes.status, statusValue as (typeof classStatusEnum.enumValues)[number])
+                )
+            }
+        }
+
+        // Filter by subject name (partial match, escape wildcards)
+        if (subject) {
+            const subjectPattern = `%${String(subject).replace(/[%_]/g, '\\$&')}%`
+            filterConditions.push(ilike(subjects.name, subjectPattern))
+        }
+
+        const whereClause = filterConditions.length > 0 ? and(...filterConditions) : undefined
+
+        const countResult = await db
+            .select({ count: sql<number>`count(*)` })
+            .from(classes)
+            .leftJoin(subjects, eq(classes.subjectId, subjects.id))
+            .where(whereClause)
+
+        const totalCount = countResult[0]?.count ?? 0
+
+        const classesList = await db
+            .select({
+                ...getTableColumns(classes),
+                subject: {
+                    id: subjects.id,
+                    name: subjects.name,
+                    code: subjects.code,
+                },
+                teacher: {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                },
+            })
+            .from(classes)
+            .leftJoin(subjects, eq(classes.subjectId, subjects.id))
+            .leftJoin(user, eq(classes.teacherId, user.id))
+            .where(whereClause)
+            .orderBy(desc(classes.created_at))
+            .limit(limitPerPage)
+            .offset(offset)
+
+        res.status(200).json({
+            data: classesList,
+            pagination: {
+                page: currentPage,
+                limit: limitPerPage,
+                total: totalCount,
+                totalPages: Math.ceil(totalCount / limitPerPage),
+            },
+        })
+    } catch (error) {
+        console.error(`GET /classes error: ${error}`)
+        return res.status(500).json({ error: 'Failed to get classes' })
+    }
+})
 
 router.post('/', async (req, res) => {
     try {
