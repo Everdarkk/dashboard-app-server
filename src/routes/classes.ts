@@ -71,7 +71,7 @@ router.get('/', async (req, res) => {
         if (capacityMin) {
             const parsedCapacityMin = Number(capacityMin)
             if (Number.isFinite(parsedCapacityMin) && parsedCapacityMin >= 0) {
-                filterConditions.push(gte(classes.capacity, Math.floor(parsedCapacityMin)))
+                filterConditions.push(gte(classes.capacity, Math.ceil(parsedCapacityMin)))
             }
         }
 
