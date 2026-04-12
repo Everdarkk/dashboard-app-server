@@ -3,7 +3,7 @@ import { db } from '../db/index'
 import { classes, classStatusEnum, subjects } from '../db/schema/index'
 import { auth } from '../lib/auth'
 import { fromNodeHeaders } from 'better-auth/node'
-import { and, desc, eq, getTableColumns, ilike, sql } from 'drizzle-orm'
+import { and, desc, eq, getTableColumns, gte, ilike, lte, sql } from 'drizzle-orm'
 import { user } from '../db/schema/auth'
 
 const router = express.Router()
@@ -11,7 +11,17 @@ const router = express.Router()
 // GET all classes with optional search, status filter, and pagination
 router.get('/', async (req, res) => {
     try {
-        const { search, status, subject, page = 1, limit = 10 } = req.query
+        const {
+            search,
+            status,
+            subject,
+            subjectId,
+            teacherId,
+            capacityMin,
+            capacityMax,
+            page = 1,
+            limit = 10,
+        } = req.query
 
         const currentPage = Math.max(1, parseInt(String(page), 10) || 1)
         const limitPerPage = Math.min(Math.max(1, parseInt(String(limit), 10) || 10), 100)
@@ -39,6 +49,37 @@ router.get('/', async (req, res) => {
         if (subject) {
             const subjectPattern = `%${String(subject).replace(/[%_]/g, '\\$&')}%`
             filterConditions.push(ilike(subjects.name, subjectPattern))
+        }
+
+        // Filter by subject id (exact match)
+        if (subjectId) {
+            const parsedSubjectId = Number(subjectId)
+            if (Number.isInteger(parsedSubjectId) && parsedSubjectId > 0) {
+                filterConditions.push(eq(classes.subjectId, parsedSubjectId))
+            }
+        }
+
+        // Filter by teacher id (exact match)
+        if (teacherId) {
+            const normalizedTeacherId = String(teacherId).trim()
+            if (normalizedTeacherId) {
+                filterConditions.push(eq(classes.teacherId, normalizedTeacherId))
+            }
+        }
+
+        // Filter by capacity min/max (inclusive)
+        if (capacityMin) {
+            const parsedCapacityMin = Number(capacityMin)
+            if (Number.isFinite(parsedCapacityMin) && parsedCapacityMin >= 0) {
+                filterConditions.push(gte(classes.capacity, Math.floor(parsedCapacityMin)))
+            }
+        }
+
+        if (capacityMax) {
+            const parsedCapacityMax = Number(capacityMax)
+            if (Number.isFinite(parsedCapacityMax) && parsedCapacityMax >= 0) {
+                filterConditions.push(lte(classes.capacity, Math.floor(parsedCapacityMax)))
+            }
         }
 
         const whereClause = filterConditions.length > 0 ? and(...filterConditions) : undefined
