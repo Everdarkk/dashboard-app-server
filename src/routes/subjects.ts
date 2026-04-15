@@ -83,20 +83,49 @@ router.post('/', async (req, res) => {
     try {
         // TODO: re-enable auth + role guard (teacher/admin only) once auth flow is wired up
 
+        const SUBJECT_NAME_MAX = 50
+        const SUBJECT_CODE_MAX = 50
+        const SUBJECT_DESCRIPTION_MAX = 255
+        const DEPARTMENT_NAME_MAX = 50
+
         // Whitelist body props to prevent mass-assignment
         const { name, code, description, department } = req.body ?? {}
-
-        // Required-field guard
-        if (!name || !code || !description || !department) {
-            return res.status(400).json({
-                error: 'Missing required fields: name, code, description, department',
-            })
-        }
 
         const normalizedName = String(name).trim()
         const normalizedCode = String(code).trim()
         const normalizedDescription = String(description).trim()
         const normalizedDepartment = String(department).trim()
+
+        // Validate required fields after normalization so whitespace-only values are rejected.
+        if (!normalizedName || !normalizedCode || !normalizedDescription || !normalizedDepartment) {
+            return res.status(400).json({
+                error: 'Missing required fields: name, code, description, department',
+            })
+        }
+
+        if (normalizedName.length > SUBJECT_NAME_MAX) {
+            return res.status(400).json({
+                error: `Invalid name: maximum length is ${SUBJECT_NAME_MAX} characters.`,
+            })
+        }
+
+        if (normalizedCode.length > SUBJECT_CODE_MAX) {
+            return res.status(400).json({
+                error: `Invalid code: maximum length is ${SUBJECT_CODE_MAX} characters.`,
+            })
+        }
+
+        if (normalizedDescription.length > SUBJECT_DESCRIPTION_MAX) {
+            return res.status(400).json({
+                error: `Invalid description: maximum length is ${SUBJECT_DESCRIPTION_MAX} characters.`,
+            })
+        }
+
+        if (normalizedDepartment.length > DEPARTMENT_NAME_MAX) {
+            return res.status(400).json({
+                error: `Invalid department: maximum length is ${DEPARTMENT_NAME_MAX} characters.`,
+            })
+        }
 
         // Resolve department by name (case-insensitive exact match — no wildcards)
         const [departmentRecord] = await db
